@@ -29,9 +29,16 @@ import kotlin.math.sin
 data class Lesson(val name: String, val room: String, val s: Int, val e: Int)
 
 object Schedule {
+    // Звонки: 1–8 урок (начало–конец в минутах)
     private val SLOTS = listOf(
-        480 to 520, 530 to 570, 590 to 630, 645 to 685,
-        700 to 740, 755 to 795, 805 to 845, 865 to 905
+        480 to 520,   // 08:00–08:40
+        530 to 570,   // 08:50–09:30
+        590 to 630,   // 09:50–10:30
+        645 to 685,   // 10:45–11:25
+        700 to 740,   // 11:40–12:20
+        755 to 795,   // 12:35–13:15
+        805 to 845,   // 13:25–14:05
+        865 to 905    // 14:15–14:55
     )
 
     private fun L(i: Int, n: String, r: String = ""): Lesson {
@@ -419,9 +426,7 @@ class MainActivity : Activity() {
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
         root.setPadding(dp(18), dp(26), dp(18), dp(30))
-        val sc = ScrollView(this)
-        sc.addView(root)
-        setContentView(sc)
+        val sc = ScrollView(this); sc.addView(root); setContentView(sc)
 
         root.addView(tv("Виджет расписания", 24f, true))
         root.addView(tv("Работает офлайн. Добавь виджет: зажми рабочий стол → Виджеты → Расписание 2×1 или 2×2.",
