@@ -26,57 +26,75 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-data class Lesson(val name: String, val s: Int, val e: Int)
+data class Lesson(val name: String, val room: String, val s: Int, val e: Int)
 
 object Schedule {
-    private fun m(t: String): Int { val p = t.split(":"); return p[0].toInt() * 60 + p[1].toInt() }
-    private fun L(n: String, a: String, b: String) = Lesson(n, m(a), m(b))
+    // Звонки: 1–8 урок (начало–конец в минутах)
+    private val SLOTS = listOf(
+        480 to 520,   // 08:00–08:40
+        530 to 570,   // 08:50–09:30
+        590 to 630,   // 09:50–10:30
+        645 to 685,   // 10:45–11:25
+        700 to 740,   // 11:40–12:20
+        755 to 795,   // 12:35–13:15
+        805 to 845,   // 13:25–14:05
+        865 to 905    // 14:15–14:55
+    )
+
+    private fun L(i: Int, n: String, r: String = ""): Lesson {
+        val t = SLOTS[i]
+        return Lesson(n, r, t.first, t.second)
+    }
+
+    private fun F(n: String, r: String = "") = Lesson(n, r, -1, -1)
 
     private val map: Map<Int, List<Lesson>> = mapOf(
         Calendar.MONDAY to listOf(
-            L("Разговоры о важном", "08:00", "08:40"),
-            L("Русский язык", "08:50", "09:30"),
-            L("Геометрия", "09:50", "10:30"),
-            L("Физика", "10:45", "11:25"),
-            L("Обществознание", "11:40", "12:20"),
-            L("Вероятность и статистика", "12:35", "13:15"),
-            L("Физическая культура", "13:25", "14:05"),
-            L("История", "14:15", "14:55")
+            L(0, "Разговоры о важном", "305"),
+            L(1, "Русский язык", "103"),
+            L(2, "Геометрия", "203"),
+            L(3, "Физика", "211"),
+            L(4, "Обществознание", "306"),
+            L(5, "ВиС", "203"),
+            L(6, "Физра"),
+            L(7, "История", "305")
         ),
         Calendar.TUESDAY to listOf(
-            L("Физика", "08:00", "08:40"),
-            L("От самопознания к самореализации", "08:50", "09:30"),
-            L("Алгебра и начала мат. анализа", "09:50", "10:30"),
-            L("Алгебра и начала мат. анализа", "10:45", "11:25"),
-            L("Основы безопасности и защиты Родины", "11:40", "12:20"),
-            L("Иностранный язык", "12:35", "13:15"),
-            L("Информатика", "13:25", "14:05")
+            L(0, "Физика", "211"),
+            L(1, "СкС", "307"),
+            L(2, "Алгебра", "203"),
+            L(3, "Алгебра", "203"),
+            L(4, "ОБЗР", "406"),
+            L(5, "Иняз", "403"),
+            L(6, "ИКТ", "205")
         ),
         Calendar.WEDNESDAY to listOf(
-            L("Физика", "08:00", "08:40"),
-            L("История", "08:50", "09:30"),
-            L("Алгебра и начала мат. анализа", "09:50", "10:30"),
-            L("Алгебра и начала мат. анализа", "10:45", "11:25"),
-            L("Литература", "11:40", "12:20"),
-            L("Литература", "12:35", "13:15"),
-            L("Обществознание", "13:25", "14:05")
+            L(0, "Физика", "211"),
+            L(1, "История", "305"),
+            L(2, "Алгебра", "203"),
+            L(3, "Алгебра", "203"),
+            L(4, "Литература", "103"),
+            L(5, "Литература", "103"),
+            L(6, "Обществознание", "307")
         ),
         Calendar.THURSDAY to listOf(
-            L("Россия – мои горизонты", "08:00", "08:40"),
-            L("Русский язык", "08:50", "09:30"),
-            L("Геометрия", "09:50", "10:30"),
-            L("Биология", "10:45", "11:25"),
-            L("География", "11:40", "12:20"),
-            L("Физика", "12:35", "13:15"),
-            L("Иностранный язык", "13:25", "14:05")
+            L(0, "Россия – мои горизонты", "305"),
+            L(1, "Русский язык", "103"),
+            L(2, "Геометрия", "203"),
+            L(3, "Биология", "408"),
+            L(4, "География", "204"),
+            L(5, "Физика", "211"),
+            L(6, "Иняз", "403"),
+            F("ИП", "309"),
+            F("Внеурочка", "211")
         ),
         Calendar.FRIDAY to listOf(
-            L("Физическая культура", "08:00", "08:40"),
-            L("Физика", "08:50", "09:30"),
-            L("Геометрия", "09:50", "10:30"),
-            L("Литература", "10:45", "11:25"),
-            L("Химия", "11:40", "12:20"),
-            L("Иностранный язык", "12:35", "13:15")
+            L(0, "Физра"),
+            L(1, "Физика", "211"),
+            L(2, "Геометрия", "203"),
+            L(3, "Литература", "103"),
+            L(4, "Химия", "408"),
+            L(5, "Иняз", "403")
         )
     )
 
@@ -85,7 +103,7 @@ object Schedule {
 
 class St {
     var label = ""; var title = ""; var sub = ""; var badge = ""
-    var next = ""; var today = ""; var progress = 0; var live = false
+    var next = ""; var today = ""; var room = ""; var progress = 0; var live = false
 }
 
 object Logic {
@@ -98,57 +116,99 @@ object Logic {
         return when { d > 0 -> "$d д $h ч"; h > 0 -> "$h ч $mm мин"; else -> "$mm мин" }
     }
 
+    private fun roomIn(l: Lesson) = if (l.room.isEmpty()) "" else " (каб. ${l.room})"
+
     fun calc(): St {
         val c = Calendar.getInstance()
         val dow = c.get(Calendar.DAY_OF_WEEK)
         val cur = c.get(Calendar.HOUR_OF_DAY) * 60 + c.get(Calendar.MINUTE)
         val sec = cur * 60 + c.get(Calendar.SECOND)
-        val list = Schedule.day(dow)
+        val all = Schedule.day(dow)
+        val list = all.filter { it.s >= 0 }
+        val flex = all.filter { it.s < 0 }
         val st = St()
 
-        st.today = if (list.isEmpty()) "Сегодня уроков нет"
-        else "Сегодня ${list.size} ур. • ${fmt(list.first().s)}–${fmt(list.last().e)}"
+        st.today = if (all.isEmpty()) "Сегодня уроков нет"
+        else {
+            var t = "Сегодня ${list.size} ур."
+            if (list.isNotEmpty()) t += " • ${fmt(list.first().s)}–${fmt(list.last().e)}"
+            if (flex.isNotEmpty()) t += " • после: " + flex.joinToString(", ") { it.name }
+            t
+        }
 
         val nowL = list.firstOrNull { cur >= it.s && cur < it.e }
         if (nowL != null) {
             st.live = true
             st.label = "СЕЙЧАС ИДЁТ"
+            st.room = nowL.room
             st.title = nowL.name
             st.sub = "${fmt(nowL.s)}–${fmt(nowL.e)}"
             st.badge = "осталось " + human(ceil((nowL.e * 60 - sec) / 60.0).toInt())
             st.progress = (((sec - nowL.s * 60).toFloat() / ((nowL.e - nowL.s) * 60)) * 100)
                 .toInt().coerceIn(0, 100)
             val nx = list.firstOrNull { it.s >= nowL.e }
-            st.next = if (nx != null) "Дальше: ${nx.name} в ${fmt(nx.s)}" else "Последний урок сегодня"
+            st.next = when {
+                nx != null -> "Дальше: ${nx.name}" + roomIn(nx) + " в ${fmt(nx.s)}"
+                flex.isNotEmpty() -> "После уроков: ${flex[0].name}" + roomIn(flex[0])
+                else -> "Последний урок сегодня"
+            }
             return st
         }
 
         var target = list.firstOrNull { it.s > cur }
         var offset = 0
+        var flexTarget: Lesson? = null
+        var dayTimed = list
+        var dayFlex = flex
+
         if (target == null) {
-            for (i in 1..7) {
-                val d = ((dow - 1 + i) % 7) + 1
-                val l = Schedule.day(d)
-                if (l.isNotEmpty()) { target = l[0]; offset = i; break }
+            if (flex.isNotEmpty()) {
+                flexTarget = flex[0]
+            } else {
+                for (i in 1..7) {
+                    val d = ((dow - 1 + i) % 7) + 1
+                    val tl = Schedule.day(d).filter { it.s >= 0 }
+                    val fl = Schedule.day(d).filter { it.s < 0 }
+                    if (tl.isNotEmpty()) { target = tl[0]; offset = i; dayTimed = tl; dayFlex = fl; break }
+                    if (fl.isNotEmpty()) { flexTarget = fl[0]; offset = i; dayTimed = tl; dayFlex = fl; break }
+                }
             }
         }
-        if (target == null) {
+
+        if (target == null && flexTarget == null) {
             st.label = "РАСПИСАНИЕ"; st.title = "Уроков нет"; return st
         }
 
-        st.label = "СЛЕДУЮЩИЙ УРОК"
-        st.title = target.name
         val dayTxt = when (offset) {
             0 -> "сегодня"
             1 -> "завтра"
             else -> SimpleDateFormat("EEE, d MMM", Locale("ru"))
                 .format(Date(System.currentTimeMillis() + offset * 86400000L))
         }
-        st.sub = "$dayTxt в ${fmt(target.s)}"
-        st.badge = "через " + human(offset * 1440 + target.s - cur)
-        val dl = Schedule.day(((dow - 1 + offset) % 7) + 1)
-        val after = dl.firstOrNull { it.s >= target.e }
-        st.next = if (after != null) "Потом: ${after.name} в ${fmt(after.s)}" else "Последний урок в этот день"
+
+        if (flexTarget != null) {
+            st.label = "СЛЕДУЮЩИЙ УРОК"
+            st.room = flexTarget.room
+            st.title = flexTarget.name
+            st.sub = "$dayTxt • время неточное"
+            st.badge = "после уроков"
+            st.next = if (dayFlex.size > 1) "Дальше: ${dayFlex[1].name}" + roomIn(dayFlex[1])
+            else "Последнее на этот день"
+            return st
+        }
+
+        val t2 = target!!
+        st.label = "СЛЕДУЮЩИЙ УРОК"
+        st.room = t2.room
+        st.title = t2.name
+        st.sub = "$dayTxt в ${fmt(t2.s)}"
+        st.badge = "через " + human(offset * 1440 + t2.s - cur)
+        val after = dayTimed.firstOrNull { it.s >= t2.e }
+        st.next = when {
+            after != null -> "Дальше: ${after.name}" + roomIn(after) + " в ${fmt(after.s)}"
+            dayFlex.isNotEmpty() -> "После уроков: ${dayFlex[0].name}" + roomIn(dayFlex[0])
+            else -> "Последний урок в этот день"
+        }
         return st
     }
 }
@@ -209,17 +269,18 @@ fun render(ctx: Context, mgr: AppWidgetManager, id: Int, big: Boolean) {
     rv.setImageViewBitmap(R.id.bg, Art.bg(w, h, p.radius * dm.density, p.c1, p.c2, p.angle,
         st.progress, st.live && big, p.text))
 
+    val labelText = st.label + if (st.room.isEmpty()) "" else " • каб. ${st.room}"
     rv.setTextColor(R.id.label, alpha(p.text, 200))
     rv.setTextColor(R.id.title, p.text)
     rv.setTextColor(R.id.sub, alpha(p.text, 225))
-    rv.setTextViewText(R.id.label, st.label)
+    rv.setTextViewText(R.id.label, labelText)
     rv.setTextViewText(R.id.title, st.title)
 
     if (big) {
         rv.setTextColor(R.id.badge, p.text)
         rv.setTextColor(R.id.next, alpha(p.text, 215))
         rv.setTextColor(R.id.today, alpha(p.text, 170))
-        rv.setTextViewText(R.id.sub, st.sub)
+        rv.setTextViewText(R.id.sub, (if (st.room.isEmpty()) "" else "каб. ${st.room} • ") + st.sub)
         rv.setTextViewText(R.id.badge, st.badge)
         rv.setTextViewText(R.id.next, st.next)
         rv.setTextViewText(R.id.today, st.today)
@@ -417,15 +478,11 @@ class MainActivity : Activity() {
 
         root.addView(btn("Обновить виджеты сейчас") { Updater.all(this) })
         if (Build.VERSION.SDK_INT >= 31) root.addView(btn("Разрешить точные будильники") {
-            try { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))) }
+            try { startActivity(Intent(Settings.ACTION_REQUEST_EXACT_ALARM, Uri.parse("package:$packageName"))) }
             catch (e: Exception) {}
         })
         root.addView(btn("Настройки приложения (автозапуск)") {
             try { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
             catch (e: Exception) {}
         })
-        Updater.schedule(this)
-    }
-
-    override fun onResume() { super.onResume(); Updater.all(this) }
-}
+        Updater.schedule(th
