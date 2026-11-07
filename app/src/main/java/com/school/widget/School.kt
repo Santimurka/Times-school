@@ -478,11 +478,11 @@ class MainActivity : Activity() {
 
         root.addView(btn("Обновить виджеты сейчас") { Updater.all(this) })
         if (Build.VERSION.SDK_INT >= 31) root.addView(btn("Разрешить точные будильники") {
-            try { startActivity(Intent(Settings.ACTION_REQUEST_EXACT_ALARM, Uri.parse("package:$packageName"))) }
+            try { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))) }
             catch (e: Exception) {}
         })
         root.addView(btn("Настройки приложения (автозапуск)") {
             try { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
             catch (e: Exception) {}
         })
-        Updater.schedule(th
+        Updater.sc
