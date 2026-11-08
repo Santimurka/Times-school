@@ -29,7 +29,6 @@ import kotlin.math.sin
 data class Lesson(val name: String, val room: String, val s: Int, val e: Int)
 
 object Schedule {
-    // Звонки: 1–8 урок (начало–конец в минутах)
     private val SLOTS = listOf(
         480 to 520,   // 08:00–08:40
         530 to 570,   // 08:50–09:30
@@ -38,7 +37,7 @@ object Schedule {
         700 to 740,   // 11:40–12:20
         755 to 795,   // 12:35–13:15
         805 to 845,   // 13:25–14:05
-        865 to 905    // 14:15–14:55
+        855 to 895    // 14:15–14:55
     )
 
     private fun L(i: Int, n: String, r: String = ""): Lesson {
@@ -103,7 +102,8 @@ object Schedule {
 
 class St {
     var label = ""; var title = ""; var sub = ""; var badge = ""
-    var next = ""; var today = ""; var room = ""; var progress = 0; var live = false
+    var next = ""; var today = ""; var room = ""; var small = ""
+    var progress = 0; var live = false
 }
 
 object Logic {
@@ -113,10 +113,15 @@ object Logic {
         var t = max(0, mins)
         val d = t / 1440; t %= 1440
         val h = t / 60; val mm = t % 60
-        return when { d > 0 -> "$d д $h ч"; h > 0 -> "$h ч $mm мин"; else -> "$mm мин" }
+        return when {
+            d > 0 -> if (h == 0) "$d д" else "$d д $h ч"
+            h > 0 -> if (mm == 0) "$h ч" else "$h ч $mm мин"
+            else -> "$mm мин"
+        }
     }
 
     private fun roomIn(l: Lesson) = if (l.room.isEmpty()) "" else " (каб. ${l.room})"
+    private fun rp(room: String) = if (room.isEmpty()) "" else "каб. $room • "
 
     fun calc(): St {
         val c = Calendar.getInstance()
@@ -143,7 +148,9 @@ object Logic {
             st.room = nowL.room
             st.title = nowL.name
             st.sub = "${fmt(nowL.s)}–${fmt(nowL.e)}"
-            st.badge = "осталось " + human(ceil((nowL.e * 60 - sec) / 60.0).toInt())
+            val left = human(ceil((nowL.e * 60 - sec) / 60.0).toInt())
+            st.badge = "осталось $left"
+            st.small = rp(nowL.room) + "до ${fmt(nowL.e)} • $left"
             st.progress = (((sec - nowL.s * 60).toFloat() / ((nowL.e - nowL.s) * 60)) * 100)
                 .toInt().coerceIn(0, 100)
             val nx = list.firstOrNull { it.s >= nowL.e }
@@ -176,7 +183,8 @@ object Logic {
         }
 
         if (target == null && flexTarget == null) {
-            st.label = "РАСПИСАНИЕ"; st.title = "Уроков нет"; return st
+            st.label = "РАСПИСАНИЕ"; st.title = "Уроков нет"; st.small = "уроков нет"
+            return st
         }
 
         val dayTxt = when (offset) {
@@ -192,6 +200,7 @@ object Logic {
             st.title = flexTarget.name
             st.sub = "$dayTxt • время неточное"
             st.badge = "после уроков"
+            st.small = rp(flexTarget.room) + "$dayTxt, после уроков"
             st.next = if (dayFlex.size > 1) "Дальше: ${dayFlex[1].name}" + roomIn(dayFlex[1])
             else "Последнее на этот день"
             return st
@@ -202,7 +211,10 @@ object Logic {
         st.room = t2.room
         st.title = t2.name
         st.sub = "$dayTxt в ${fmt(t2.s)}"
-        st.badge = "через " + human(offset * 1440 + t2.s - cur)
+        val cd = human(offset * 1440 + t2.s - cur)
+        st.badge = "через $cd"
+        st.small = if (offset == 0) rp(t2.room) + "в ${fmt(t2.s)} • через $cd"
+        else rp(t2.room) + "$dayTxt в ${fmt(t2.s)}"
         val after = dayTimed.firstOrNull { it.s >= t2.e }
         st.next = when {
             after != null -> "Дальше: ${after.name}" + roomIn(after) + " в ${fmt(after.s)}"
@@ -220,10 +232,16 @@ class Prefs(c: Context) {
     var radius: Int get() = sp.getInt("radius", 26); set(v) { sp.edit().putInt("radius", v).apply() }
     var angle: Int get() = sp.getInt("angle", 135); set(v) { sp.edit().putInt("angle", v).apply() }
     var text: Int get() = sp.getInt("text", Color.WHITE); set(v) { sp.edit().putInt("text", v).apply() }
+    var op: Int get() = sp.getInt("op", 100); set(v) { sp.edit().putInt("op", v).apply() }
 }
 
+fun alpha(c: Int, a: Int) = (c and 0x00FFFFFF) or ((a.coerceIn(0, 255)) shl 24)
+
 object Art {
-    fun bg(w: Int, h: Int, r: Float, c1: Int, c2: Int, angle: Int, prog: Int, bar: Boolean, acc: Int): Bitmap {
+    fun bg(w: Int, h: Int, r: Float, c1: Int, c2: Int, angle: Int,
+           prog: Int, bar: Boolean, acc: Int, op: Int): Bitmap {
+        val o = op.coerceIn(10, 100)
+        val ab = o * 255 / 100
         val bmp = Bitmap.createBitmap(max(4, w), max(4, h), Bitmap.Config.ARGB_8888)
         val cv = Canvas(bmp)
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -231,27 +249,26 @@ object Art {
         val rad = Math.toRadians(angle.toDouble())
         val cx = w / 2f; val cy = h / 2f
         val dx = (cos(rad) * w / 2).toFloat(); val dy = (sin(rad) * h / 2).toFloat()
-        p.shader = LinearGradient(cx - dx, cy - dy, cx + dx, cy + dy, c1, c2, Shader.TileMode.CLAMP)
+        p.shader = LinearGradient(cx - dx, cy - dy, cx + dx, cy + dy,
+            alpha(c1, ab), alpha(c2, ab), Shader.TileMode.CLAMP)
         cv.drawRoundRect(rect, r, r, p)
         p.shader = RadialGradient(w * 0.18f, h * 0.08f, max(w, h) * 0.95f,
-            Color.argb(55, 255, 255, 255), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+            Color.argb(55 * o / 100, 255, 255, 255), Color.TRANSPARENT, Shader.TileMode.CLAMP)
         cv.drawRoundRect(rect, r, r, p)
         p.shader = null
         if (bar) {
             val pad = w * 0.07f
             val bh = max(4f, h * 0.032f)
             val top = h - pad * 0.7f - bh
-            p.color = Color.argb(60, 255, 255, 255)
+            p.color = Color.argb(70 * o / 100, 255, 255, 255)
             cv.drawRoundRect(RectF(pad, top, w - pad, top + bh), bh / 2, bh / 2, p)
-            p.color = acc
+            p.color = alpha(acc, max(ab, 140))
             val right = pad + (w - 2 * pad) * prog / 100f
             cv.drawRoundRect(RectF(pad, top, max(right, pad + bh), top + bh), bh / 2, bh / 2, p)
         }
         return bmp
     }
 }
-
-fun alpha(c: Int, a: Int) = (c and 0x00FFFFFF) or (a shl 24)
 
 fun render(ctx: Context, mgr: AppWidgetManager, id: Int, big: Boolean) {
     val p = Prefs(ctx)
@@ -264,28 +281,28 @@ fun render(ctx: Context, mgr: AppWidgetManager, id: Int, big: Boolean) {
     if (hd <= 0) hd = if (big) 160 else 68
     val w = min(720, max(64, (wd * dm.density).toInt()))
     val h = min(720, max(48, (hd * dm.density).toInt()))
+    val op = p.op.coerceIn(10, 100)
 
     val rv = RemoteViews(ctx.packageName, if (big) R.layout.w_big else R.layout.w_small)
     rv.setImageViewBitmap(R.id.bg, Art.bg(w, h, p.radius * dm.density, p.c1, p.c2, p.angle,
-        st.progress, st.live && big, p.text))
+        st.progress, st.live && big, p.text, op))
 
-    val labelText = st.label + if (st.room.isEmpty()) "" else " • каб. ${st.room}"
-    rv.setTextColor(R.id.label, alpha(p.text, 200))
-    rv.setTextColor(R.id.title, p.text)
-    rv.setTextColor(R.id.sub, alpha(p.text, 225))
-    rv.setTextViewText(R.id.label, labelText)
+    rv.setTextColor(R.id.label, alpha(p.text, 200 * op / 100))
+    rv.setTextColor(R.id.title, alpha(p.text, max(120, 255 * op / 100)))
+    rv.setTextColor(R.id.sub, alpha(p.text, 225 * op / 100))
+    rv.setTextViewText(R.id.label, st.label)
     rv.setTextViewText(R.id.title, st.title)
 
     if (big) {
-        rv.setTextColor(R.id.badge, p.text)
-        rv.setTextColor(R.id.next, alpha(p.text, 215))
-        rv.setTextColor(R.id.today, alpha(p.text, 170))
-        rv.setTextViewText(R.id.sub, (if (st.room.isEmpty()) "" else "каб. ${st.room} • ") + st.sub)
+        rv.setTextColor(R.id.badge, alpha(p.text, max(120, 255 * op / 100)))
+        rv.setTextColor(R.id.next, alpha(p.text, 215 * op / 100))
+        rv.setTextColor(R.id.today, alpha(p.text, 170 * op / 100))
+        rv.setTextViewText(R.id.sub, st.sub + if (st.room.isEmpty()) "" else " • каб. ${st.room}")
         rv.setTextViewText(R.id.badge, st.badge)
         rv.setTextViewText(R.id.next, st.next)
         rv.setTextViewText(R.id.today, st.today)
     } else {
-        rv.setTextViewText(R.id.sub, st.sub + " • " + st.badge)
+        rv.setTextViewText(R.id.sub, st.small)
     }
 
     val pi = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java),
@@ -314,9 +331,10 @@ object Updater {
             if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms())
                 am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
             else
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+                am.setExact(AlarmManager.RTC_WAKEUP, at, pi)
         } catch (e: Exception) {
-            am.set(AlarmManager.RTC_WAKEUP, at, pi)
+            try { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
+            catch (e2: Exception) { am.set(AlarmManager.RTC_WAKEUP, at, pi) }
         }
     }
 }
@@ -368,7 +386,8 @@ class MainActivity : Activity() {
     private fun debounce() { h.removeCallbacks(apply); h.postDelayed(apply, 350) }
 
     private fun drawPreview() {
-        preview.setImageBitmap(Art.bg(720, 260, p.radius * 3f, p.c1, p.c2, p.angle, 62, true, p.text))
+        preview.setImageBitmap(Art.bg(720, 260, p.radius * 3f, p.c1, p.c2, p.angle,
+            62, true, p.text, p.op))
     }
 
     private fun picker(title: String, get: () -> Int, set: (Int) -> Unit): LinearLayout {
@@ -413,6 +432,21 @@ class MainActivity : Activity() {
         return box
     }
 
+    private fun slider(title: String, max: Int, get: () -> Int, set: (Int) -> Unit) {
+        root2.addView(tv(title, 15f, true))
+        val sb = SeekBar(this)
+        sb.max = max
+        sb.progress = get()
+        sb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, v: Int, u: Boolean) { set(v); drawPreview(); debounce() }
+            override fun onStartTrackingTouch(s: SeekBar?) {}
+            override fun onStopTrackingTouch(s: SeekBar?) {}
+        })
+        root2.addView(sb)
+    }
+
+    private lateinit var root2: LinearLayout
+
     private fun btn(t: String, act: () -> Unit): Button {
         val b = Button(this)
         b.text = t; b.isAllCaps = false
@@ -426,7 +460,10 @@ class MainActivity : Activity() {
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
         root.setPadding(dp(18), dp(26), dp(18), dp(30))
-        val sc = ScrollView(this); sc.addView(root); setContentView(sc)
+        root2 = root
+        val sc = ScrollView(this)
+        sc.addView(root)
+        setContentView(sc)
 
         root.addView(tv("Виджет расписания", 24f, true))
         root.addView(tv("Работает офлайн. Добавь виджет: зажми рабочий стол → Виджеты → Расписание 2×1 или 2×2.",
@@ -448,28 +485,16 @@ class MainActivity : Activity() {
             Triple("Аметист", 0xFF8B5CF6.toInt(), 0xFFEC4899.toInt()),
             Triple("Графит", 0xFF334155.toInt(), 0xFF0F172A.toInt())
         )
-        for (t in presets) row.addView(btn(t.first) { p.c1 = t.second; p.c2 = t.third; debounce(); recreate() })
+        for (t in presets) row.addView(btn(t.first) {
+            p.c1 = t.second; p.c2 = t.third; Updater.all(this); recreate()
+        })
 
         root.addView(picker("Цвет градиента 1", { p.c1 }, { p.c1 = it }))
         root.addView(picker("Цвет градиента 2", { p.c2 }, { p.c2 = it }))
 
-        root.addView(tv("Закругление углов", 15f, true))
-        val rb = SeekBar(this); rb.max = 44; rb.progress = p.radius - 6
-        rb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar?, v: Int, u: Boolean) { p.radius = v + 6; drawPreview(); debounce() }
-            override fun onStartTrackingTouch(s: SeekBar?) {}
-            override fun onStopTrackingTouch(s: SeekBar?) {}
-        })
-        root.addView(rb)
-
-        root.addView(tv("Угол градиента", 15f, true))
-        val ab = SeekBar(this); ab.max = 360; ab.progress = p.angle
-        ab.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar?, v: Int, u: Boolean) { p.angle = v; drawPreview(); debounce() }
-            override fun onStartTrackingTouch(s: SeekBar?) {}
-            override fun onStopTrackingTouch(s: SeekBar?) {}
-        })
-        root.addView(ab)
+        slider("Закругление углов", 44, { p.radius - 6 }, { p.radius = it + 6 })
+        slider("Угол градиента", 360, { p.angle }, { p.angle = it })
+        slider("Прозрачность (20–100 %)", 80, { p.op - 20 }, { p.op = it + 20 })
 
         val tr = LinearLayout(this)
         tr.addView(btn("Белый текст") { p.text = Color.WHITE; drawPreview(); debounce() })
@@ -490,3 +515,4 @@ class MainActivity : Activity() {
 
     override fun onResume() { super.onResume(); Updater.all(this) }
 }
+// КОНЕЦ ФАЙЛА
