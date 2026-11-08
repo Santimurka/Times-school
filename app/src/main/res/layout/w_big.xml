@@ -15,23 +15,24 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingLeft="15dp"
-        android:paddingRight="15dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="18dp">
+        android:paddingLeft="14dp"
+        android:paddingRight="14dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="14dp">
 
         <TextView android:id="@+id/label"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:textSize="9sp" android:letterSpacing="0.1" android:maxLines="1"/>
+            android:textSize="9sp" android:letterSpacing="0.08" android:maxLines="1"/>
 
         <TextView android:id="@+id/title"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:textSize="18sp" android:textStyle="bold"
+            android:textSize="17sp" android:textStyle="bold"
             android:maxLines="2" android:ellipsize="end" android:lineSpacingExtra="-2dp"/>
 
         <TextView android:id="@+id/sub"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:textSize="11sp" android:maxLines="1" android:paddingTop="3dp"/>
+            android:textSize="10sp" android:maxLines="2" android:ellipsize="end"
+            android:paddingTop="2dp"/>
 
         <TextView android:id="@+id/badge"
             android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -39,7 +40,8 @@
 
         <TextView android:id="@+id/next"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:textSize="10sp" android:maxLines="2" android:ellipsize="end" android:paddingTop="7dp"/>
+            android:textSize="10sp" android:maxLines="2" android:ellipsize="end"
+            android:paddingTop="5dp"/>
 
         <TextView android:id="@+id/today"
             android:layout_width="match_parent" android:layout_height="wrap_content"
