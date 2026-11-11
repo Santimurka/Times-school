@@ -3,5 +3,6 @@
     <string name="app_name">Расписание</string>
     <string name="w_small">Расписание 2×1</string>
     <string name="w_big">Расписание 2×2</string>
-    <string name="w_desc">Следующий урок, время и обратный отсчёт</string>
+    <string name="w_desc">Урок, перемена и обратный отсчёт — всегда актуально</string>
+    <string name="w_refresh">Обновить расписание</string>
 </resources>
