@@ -9,6 +9,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.*
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
@@ -131,7 +132,7 @@ object SubjectColors {
 
 /* ================= СОСТОЯНИЕ ================= */
 class St {
-    var phase = ""            // lesson | break | before | flex | after | empty | none
+    var phase = ""            // lesson | break | before | flex | after | empty
     var label = ""; var title = ""; var sub = ""
     var chipTime = ""; var chipRoom = ""
     var dot = 0
@@ -749,15 +750,15 @@ class MainActivity : Activity() {
         val all = Schedule.day(dow)
         val timed = all.filter { it.s >= 0 }
         val flex = all.filter { it.s < 0 }
+        val todayIdx = (Calendar.getInstance().get(Calendar.DAY_OF_WEEK) + 5) % 7
         val full = SimpleDateFormat("EEEE", Locale("ru"))
-            .format(Date(System.currentTimeMillis() + ((weekDay - ((Calendar.getInstance().get(Calendar.DAY_OF_WEEK) + 5) % 7)) * 86400000L)))
+            .format(Date(System.currentTimeMillis() + (weekDay - todayIdx) * 86400000L))
             .replaceFirstChar { it.uppercase() }
         content.addView(tv(full, 18f, true))
         content.addView(tv(if (timed.isEmpty() && flex.isEmpty()) "Выходной — уроков нет"
         else "${timed.size} уроков" + (if (timed.isNotEmpty()) " • ${Logic.fmt(timed.first().s)}–${Logic.fmt(timed.last().e)}" else "") +
             (if (flex.isNotEmpty()) " • после: " + flex.joinToString(", ") { it.name } else ""), 12f, false, cMut))
 
-        val todayIdx = (Calendar.getInstance().get(Calendar.DAY_OF_WEEK) + 5) % 7
         val st = Logic.calc(p.accent)
         val isToday = weekDay == todayIdx
 
@@ -801,7 +802,6 @@ class MainActivity : Activity() {
             tag.setPadding(dp(8), dp(3), dp(8), dp(3))
             row.addView(tag)
         }
-        (row.layoutParams as? LinearLayout.LayoutParams)?.topMargin = dp(6)
         row.layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) }
         return row
     }
